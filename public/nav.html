@@ -1,0 +1,24 @@
+<nav class="navbar navbar-expand-lg navbar-light bg-light d-flex justify-content-between mx-2">
+    <a class="navbar-brand" href="#">Mongo Exporter</a>
+    <div class="d-flex justify-content-end">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDarkDropdown" aria-controls="navbarNavDarkDropdown" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNavDarkDropdown">
+            <ul class="nav justify-content-center">
+                {{range .Remotes}}
+                <li class="main-nav-items nav-item">
+                    <a class="nav-link" hx-get="/database/{{.Name}}" hx-target="#main" hx-swap="innerHTML">{{.Name}}</a>
+                </li>
+                {{end}}
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<script>
+    $( '.main-nav-items' ).on( 'click', function () {
+        $( '.main-nav-items' ).find( 'a.disabled' ).removeClass( 'disabled' );
+        $( this ).children("a").addClass( 'disabled' );
+    });
+</script>

@@ -1,0 +1,23 @@
+<h5>{{ .DbName}} db</h5>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-2">
+                {{ range .SiblingDatabases }}
+                <div class="nav-collection" hx-get="/collection/{{ .Name}}" hx-target="#databaseViewer" hx-swap="innerHTML"> {{ .Name }}</div>
+                {{ end }}
+        </div>
+        <div id="databaseViewer" class="col-10">
+            <h5>No database selected</h5>
+        </div>
+    </div>
+</div>
+
+<script>
+    $( '.nav-collection' ).on( 'click', function () {
+        $( '.nav-collection' ).removeClass( 'badge' );
+        $( '.nav-collection' ).removeClass( 'bg-secondary' );
+        $( this ).addClass( 'badge' );
+        $( this ).addClass( 'bg-secondary' );
+    });
+</script>

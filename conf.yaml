@@ -1,0 +1,4 @@
+config:
+  local: mongodb://admin:admin@localhost:27017
+  remotes:
+
