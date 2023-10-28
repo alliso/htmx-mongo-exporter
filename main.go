@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -26,8 +27,8 @@ type Data struct {
 	}
 }
 
-type Database struct {
-	Name string
+type Toast struct {
+	ShowMessage string `json:"showMessage"`
 }
 
 var config = &Data{}
@@ -82,7 +83,7 @@ func initServer() {
 	app.Get("/", renderIndex)
 	app.Get("/database/:name", changeDatabase)
 	app.Get("/collection/:name", getCollections)
-	app.Post("/collection/:name", importCollection)
+	app.Post("/collection/:name", importLast100)
 	app.Post("/collection/:name/full", importFullCollection)
 
 	log.Fatal(app.Listen(":4000"))
@@ -138,6 +139,25 @@ func getCollections(c *fiber.Ctx) error {
 	})
 }
 
+func getFullCollection(collectionName string) ([]any, error) {
+	cursor, _ := clientGlobal.Database(globalDb).Collection(collectionName).Find(context.TODO(), bson.D{{}})
+
+	var data []any
+	err := cursor.All(context.TODO(), &data)
+
+	return data, err
+}
+
+func getLast100(collectionName string) ([]any, error) {
+	optsFind := options.Find().SetLimit(100).SetSort(bson.D{{"_id", -1}})
+	cursor, _ := clientGlobal.Database(globalDb).Collection(collectionName).Find(context.TODO(), bson.D{{}}, optsFind)
+
+	var data []any
+	err := cursor.All(context.TODO(), &data)
+
+	return data, err
+}
+
 func importFullCollection(c *fiber.Ctx) error {
 	collectionName := c.Params("name")
 	if collectionName == "" {
@@ -145,10 +165,8 @@ func importFullCollection(c *fiber.Ctx) error {
 		return nil
 	}
 
-	cursor, _ := clientGlobal.Database(globalDb).Collection(collectionName).Find(context.TODO(), bson.D{{}})
+	data, err := getFullCollection(collectionName)
 
-	var data []any
-	err := cursor.All(context.TODO(), &data)
 	if err != nil {
 		log.Fatal(err)
 		return nil
@@ -161,7 +179,10 @@ func importFullCollection(c *fiber.Ctx) error {
 		log.Fatal(err)
 	}
 
-	return c.SendString("FULL")
+	message, _ := json.Marshal(Toast{ShowMessage: "Imported full Collection"})
+
+	c.Set("HX-TRIGGER", string(message))
+	return c.SendStatus(200)
 }
 
 func createOrDropCollection(dbName string, collectionName string) {
@@ -171,7 +192,29 @@ func createOrDropCollection(dbName string, collectionName string) {
 	}
 }
 
-func importCollection(c *fiber.Ctx) error {
-	fmt.Println("IMPORTED")
-	return c.SendString("IMPORTED")
+func importLast100(c *fiber.Ctx) error {
+	collectionName := c.Params("name")
+	if collectionName == "" {
+		log.Fatal("Collection not found")
+		return nil
+	}
+
+	data, err := getLast100(collectionName)
+
+	if err != nil {
+		log.Fatal(err)
+		return nil
+	}
+
+	createOrDropCollection(globalDb, collectionName)
+	_, err = mongoLocal.Database(globalDb).Collection(collectionName).InsertMany(context.TODO(), data)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	message, _ := json.Marshal(Toast{ShowMessage: "Imported last 100"})
+
+	c.Set("HX-TRIGGER", string(message))
+	return c.SendString("100 last")
 }
