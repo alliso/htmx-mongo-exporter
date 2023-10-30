@@ -1,36 +1,48 @@
 package config
 
 import (
+	"bufio"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
+	"os"
 )
+
+var MainConf Config
 
 type DbData struct {
 	Name string
 	Uri  string
 }
 type Config struct {
-	Local   DbData
+	Local   string
 	Remotes []DbData
 }
 
 type data struct {
-	config Config
+	Config Config
 }
 
-type Loader interface {
-	loadConfig() error
-}
-
-func (c Config) loadConfig() (Config, error) {
-	buf, err := ioutil.ReadFile("conf.yaml")
+func LoadConfig() {
+	file, err := os.Open("conf.yaml")
 	if err != nil {
-		return c, err
+		panic(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	var yamlData string
+	for scanner.Scan() {
+		yamlData += scanner.Text() + "\n"
 	}
 
-	var data = &data{}
+	if scanner.Err() != nil {
+		panic(err)
+	}
 
-	err = yaml.Unmarshal(buf, data)
+	var cfg data
+	err = yaml.Unmarshal([]byte(yamlData), &cfg)
+	if err != nil {
+		panic(err)
+	}
 
-	return data.config, err
+	MainConf = cfg.Config
 }

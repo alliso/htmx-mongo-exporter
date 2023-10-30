@@ -1,10 +1,10 @@
-<h5>{{ .DbName}} db</h5>
+<h5>{{ .DbName }} db</h5>
 
 <div class="container-fluid">
     <div class="row">
         <div class="col-2">
                 {{ range .SiblingDatabases }}
-                <div class="nav-collection" hx-get="/collection/{{ .Name}}" hx-target="#databaseViewer" hx-swap="innerHTML"> {{ .Name }}</div>
+                <div class="nav-collection" hx-get="/collection/{{ . }}" hx-target="#databaseViewer" hx-swap="innerHTML"> {{ . }}</div>
                 {{ end }}
         </div>
         <div id="databaseViewer" class="col-10">

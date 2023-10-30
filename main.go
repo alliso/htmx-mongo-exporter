@@ -1,76 +1,23 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/template/html/v2"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"gopkg.in/yaml.v3"
-	"io/ioutil"
 	"log"
+	"mongoExporter/infrastructure/config"
+	"mongoExporter/infrastructure/mongo"
 )
-
-type remote struct {
-	Name string
-	Uri  string
-}
-
-type Data struct {
-	Config struct {
-		Local   string
-		Remotes []remote
-	}
-}
 
 type Toast struct {
 	ShowMessage string `json:"showMessage"`
 }
 
-var config = &Data{}
-
-var currentDb remote = remote{}
-
-var clientGlobal mongo.Client
-
-var mongoLocal mongo.Client
-
-var globalDb string
-
 func main() {
-	loadConfig()
-	initMongoLocal()
+	config.LoadConfig()
+	mongo.InitMongoLocal()
 	initServer()
-}
-
-func loadConfig() {
-	buf, err := ioutil.ReadFile("conf.yaml")
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-
-	err = yaml.Unmarshal(buf, config)
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-
-	fmt.Println(config.Config.Remotes)
-}
-
-func initMongoLocal() {
-	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(config.Config.Local))
-
-	if err != nil {
-		panic(err)
-	}
-
-	mongoLocal = *client
 }
 
 func initServer() {
@@ -91,7 +38,7 @@ func initServer() {
 
 func renderIndex(c *fiber.Ctx) error {
 	return c.Render("index", fiber.Map{
-		"Remotes": config.Config.Remotes,
+		"Remotes": config.MainConf.Remotes,
 	})
 }
 
@@ -103,22 +50,18 @@ func changeDatabase(c *fiber.Ctx) error {
 		return nil
 	}
 
-	for _, remote := range config.Config.Remotes {
+	for _, remote := range config.MainConf.Remotes {
 		if remote.Name == dbName {
-			currentDb = remote
+			mongo.DbManager.SetCurrentDb(remote.Name)
+			mongo.MongoRemote = *mongo.DbManager.GetMongoClient(remote.Uri)
 		}
 	}
 
-	client, _ := mongo.Connect(context.TODO(), options.Client().ApplyURI(currentDb.Uri))
-	clientGlobal = *client
-
-	filter := bson.D{{}}
-
-	databases, _ := clientGlobal.ListDatabases(context.TODO(), filter)
+	databases, _ := mongo.DbManager.GetDatabases(mongo.MongoRemote)
 
 	return c.Render("db/index", fiber.Map{
-		"DbName":           currentDb.Name,
-		"SiblingDatabases": databases.Databases,
+		"DbName":           mongo.DbManager.CurrentDb,
+		"SiblingDatabases": databases,
 	})
 }
 
@@ -130,9 +73,9 @@ func getCollections(c *fiber.Ctx) error {
 		return nil
 	}
 
-	globalDb = dbName
+	mongo.DbManager.SetCurrentDb(dbName)
 
-	collections, _ := clientGlobal.Database(dbName).ListCollectionNames(context.TODO(), bson.D{{}})
+	collections, _ := mongo.DbManager.GetCollections(mongo.MongoRemote)
 
 	return c.Render("collection/index", fiber.Map{
 		"Collections": collections,
@@ -140,22 +83,11 @@ func getCollections(c *fiber.Ctx) error {
 }
 
 func getFullCollection(collectionName string) ([]any, error) {
-	cursor, _ := clientGlobal.Database(globalDb).Collection(collectionName).Find(context.TODO(), bson.D{{}})
-
-	var data []any
-	err := cursor.All(context.TODO(), &data)
-
-	return data, err
+	return mongo.DbManager.FindAll(collectionName, mongo.MongoRemote)
 }
 
 func getLast100(collectionName string) ([]any, error) {
-	optsFind := options.Find().SetLimit(100).SetSort(bson.D{{"_id", -1}})
-	cursor, _ := clientGlobal.Database(globalDb).Collection(collectionName).Find(context.TODO(), bson.D{{}}, optsFind)
-
-	var data []any
-	err := cursor.All(context.TODO(), &data)
-
-	return data, err
+	return mongo.DbManager.FindLast100(collectionName, mongo.MongoRemote)
 }
 
 func importFullCollection(c *fiber.Ctx) error {
@@ -171,10 +103,9 @@ func importFullCollection(c *fiber.Ctx) error {
 		log.Fatal(err)
 		return nil
 	}
-
-	createOrDropCollection(globalDb, collectionName)
-	_, err = mongoLocal.Database(globalDb).Collection(collectionName).InsertMany(context.TODO(), data)
-
+	dbs, err := mongo.DbManager.GetDatabases(mongo.MongoLocal)
+	log.Println(dbs)
+	err = mongo.DbManager.DeleteOldAndSaveAll(collectionName, data, mongo.MongoLocal)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -183,13 +114,6 @@ func importFullCollection(c *fiber.Ctx) error {
 
 	c.Set("HX-TRIGGER", string(message))
 	return c.SendStatus(200)
-}
-
-func createOrDropCollection(dbName string, collectionName string) {
-	err := mongoLocal.Database(dbName).Collection(collectionName).Drop(context.TODO())
-	if err != nil {
-		log.Fatal(err)
-	}
 }
 
 func importLast100(c *fiber.Ctx) error {
@@ -206,8 +130,7 @@ func importLast100(c *fiber.Ctx) error {
 		return nil
 	}
 
-	createOrDropCollection(globalDb, collectionName)
-	_, err = mongoLocal.Database(globalDb).Collection(collectionName).InsertMany(context.TODO(), data)
+	err = mongo.DbManager.DeleteOldAndSaveAll(collectionName, data, mongo.MongoLocal)
 
 	if err != nil {
 		log.Fatal(err)
