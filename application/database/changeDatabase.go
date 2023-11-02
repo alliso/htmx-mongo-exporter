@@ -17,7 +17,6 @@ func ChangeDatabase(c *fiber.Ctx) error {
 
 	for _, remote := range config.MainConf.Remotes {
 		if remote.Name == dbName {
-			mongo.DbManager.SetCurrentDb(remote.Name)
 			mongo.MongoRemote = *mongo.DbManager.GetMongoClient(remote.Uri)
 		}
 	}
@@ -25,7 +24,6 @@ func ChangeDatabase(c *fiber.Ctx) error {
 	databases, _ := mongo.DbManager.GetDatabases(mongo.MongoRemote)
 
 	return c.Render("db/index", fiber.Map{
-		"DbName":           mongo.DbManager.CurrentDb,
 		"SiblingDatabases": databases,
 	})
 }

@@ -1,10 +1,10 @@
 <div>
-    {{ range $i, $collection := .Collections }}
+    {{ range $collection, $db := .Collections }}
     <div class="d-flex justify-content-between my-2">
         <div>{{ $collection }}</div>
         <div>
-            <button type="button" class="btn btn-secondary" hx-post="/collection/{{$collection}}/full" hx-swap="none">Import full collection</button>
-            <button type="button" class="btn btn-secondary" hx-post="/collection/{{$collection}}" hx-swap="none">Import last 100</button>
+            <button type="button" class="btn btn-secondary" hx-post="/{{$db}}/collection/{{$collection}}/full" hx-swap="none">Import full collection</button>
+            <button type="button" class="btn btn-secondary" hx-post="/{{$db}}/collection/{{$collection}}" hx-swap="none">Import last 100</button>
         </div>
     </div>
     {{ end }}

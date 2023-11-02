@@ -7,18 +7,22 @@ import (
 )
 
 func GetCollections(c *fiber.Ctx) error {
-	dbName := c.Params("name")
+	dbName := c.Params("dbname")
 
 	if dbName == "" {
 		log.Fatal("DB not found in remotes")
 		return nil
 	}
 
-	mongo.DbManager.SetCurrentDb(dbName)
+	collectionNames, _ := mongo.DbManager.GetCollections(dbName, mongo.MongoRemote)
 
-	collections, _ := mongo.DbManager.GetCollections(mongo.MongoRemote)
+	collections := make(map[string]string)
+	for _, names := range collectionNames {
+		collections[names] = dbName
+	}
 
 	return c.Render("collection/index", fiber.Map{
+		"DbName":      dbName,
 		"Collections": collections,
 	})
 }

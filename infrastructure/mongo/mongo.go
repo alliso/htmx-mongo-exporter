@@ -15,17 +15,15 @@ var MongoLocal mongo.Client
 var DbManager Db
 
 type Db struct {
-	CurrentDb string
 }
 
 type IDbManager interface {
 	GetMongoClient(mongoUri string) *mongo.Client
-	SetCurrentDb(dbName string)
 	GetDatabases(client mongo.Client) ([]string, error)
-	GetCollections(client mongo.Client) ([]string, error)
-	FindAll(collectionName string, client mongo.Client) ([]any, error)
-	FindLast100(collectionName string, client mongo.Client) ([]any, error)
-	DeleteOldAndSaveAll(collectionName string, data []any, client mongo.Client) error
+	GetCollections(dbName string, client mongo.Client) ([]string, error)
+	FindAll(dbName string, collectionName string, client mongo.Client) ([]any, error)
+	FindLast100(dbName string, collectionName string, client mongo.Client) ([]any, error)
+	DeleteOldAndSaveAll(dbName string, collectionName string, data []any, client mongo.Client) error
 }
 
 func InitMongoLocal() {
@@ -40,20 +38,16 @@ func (m Db) GetMongoClient(mongoUri string) *mongo.Client {
 	return client
 }
 
-func (m *Db) SetCurrentDb(dbName string) {
-	m.CurrentDb = dbName
-}
-
 func (m Db) GetDatabases(client mongo.Client) ([]string, error) {
 	return client.ListDatabaseNames(context.TODO(), bson.D{{}})
 }
 
-func (m Db) GetCollections(client mongo.Client) ([]string, error) {
-	return client.Database(m.CurrentDb).ListCollectionNames(context.TODO(), bson.D{{}})
+func (m Db) GetCollections(dbName string, client mongo.Client) ([]string, error) {
+	return client.Database(dbName).ListCollectionNames(context.TODO(), bson.D{{}})
 }
 
-func (m Db) FindAll(collectionName string, client mongo.Client) ([]any, error) {
-	cursor, err := client.Database(m.CurrentDb).Collection(collectionName).Find(context.TODO(), bson.D{{}})
+func (m Db) FindAll(dbName string, collectionName string, client mongo.Client) ([]any, error) {
+	cursor, err := client.Database(dbName).Collection(collectionName).Find(context.TODO(), bson.D{{}})
 	if err != nil {
 		return nil, err
 	}
@@ -64,9 +58,9 @@ func (m Db) FindAll(collectionName string, client mongo.Client) ([]any, error) {
 	return data, err
 }
 
-func (m Db) FindLast100(collectionName string, client mongo.Client) ([]any, error) {
+func (m Db) FindLast100(dbName string, collectionName string, client mongo.Client) ([]any, error) {
 	optsFind := options.Find().SetLimit(100).SetSort(bson.D{{"_id", -1}})
-	cursor, err := client.Database(m.CurrentDb).Collection(collectionName).Find(context.TODO(), bson.D{{}}, optsFind)
+	cursor, err := client.Database(dbName).Collection(collectionName).Find(context.TODO(), bson.D{{}}, optsFind)
 
 	if err != nil {
 		return nil, err
@@ -78,14 +72,14 @@ func (m Db) FindLast100(collectionName string, client mongo.Client) ([]any, erro
 	return data, err
 }
 
-func (m Db) DeleteOldAndSaveAll(collectionName string, data []any, client mongo.Client) error {
-	err := client.Database(m.CurrentDb).Collection(collectionName).Drop(context.TODO())
+func (m Db) DeleteOldAndSaveAll(dbName string, collectionName string, data []any, client mongo.Client) error {
+	err := client.Database(dbName).Collection(collectionName).Drop(context.TODO())
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	_, err = client.Database(m.CurrentDb).Collection(collectionName).InsertMany(context.TODO(), data)
+	_, err = client.Database(dbName).Collection(collectionName).InsertMany(context.TODO(), data)
 
 	return err
 }

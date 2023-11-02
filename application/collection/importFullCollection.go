@@ -9,12 +9,13 @@ import (
 
 func ImportFullCollection(c *fiber.Ctx) error {
 	collectionName := c.Params("name")
-	if collectionName == "" {
+	dbName := c.Params("dbname")
+	if collectionName == "" || dbName == "" {
 		log.Fatal("Collection not found")
 		return nil
 	}
 
-	data, err := mongo.DbManager.FindAll(collectionName, mongo.MongoRemote)
+	data, err := mongo.DbManager.FindAll(dbName, collectionName, mongo.MongoRemote)
 
 	if err != nil {
 		log.Fatal(err)
@@ -22,7 +23,7 @@ func ImportFullCollection(c *fiber.Ctx) error {
 	}
 	dbs, err := mongo.DbManager.GetDatabases(mongo.MongoLocal)
 	log.Println(dbs)
-	err = mongo.DbManager.DeleteOldAndSaveAll(collectionName, data, mongo.MongoLocal)
+	err = mongo.DbManager.DeleteOldAndSaveAll(dbName, collectionName, data, mongo.MongoLocal)
 	if err != nil {
 		log.Fatal(err)
 	}

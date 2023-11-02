@@ -26,9 +26,9 @@ func initServer() {
 
 	app.Get("/", renderIndex)
 	app.Get("/database/:name", database.ChangeDatabase)
-	app.Get("/collection/:name", collection.GetCollections)
-	app.Post("/collection/:name", collection.ImportLast100)
-	app.Post("/collection/:name/full", collection.ImportFullCollection)
+	app.Get("/:dbname/collection", collection.GetCollections)
+	app.Post("/:dbname/collection/:name", collection.ImportLast100)
+	app.Post("/:dbname/collection/:name/full", collection.ImportFullCollection)
 
 	log.Fatal(app.Listen(":4000"))
 }
